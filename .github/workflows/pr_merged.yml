@@ -1,47 +1,40 @@
-name: PR Accepted Deployment
-run-name: PR from ${{ github.actor }} accepted - triggered a ${{ github.event_name }}
+name: Deploy to Prod
+run-name: Prod deploy triggered by ${{ github.actor }}
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
-  run-snowflake-dbt-job:
-    name: "Run on Accepted PR"
+  deploy-prod-dbt-job:
+    name: "Deploy dbt project to Prod"
     runs-on: ubuntu-latest
-    environment: prod # Must match the OIDC subject's environment
+    environment: prod   # matches the prod OIDC subject (CICD_PROD_USER)
     env:
       SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      # SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PAT }} # Snowflake password is required if you aren't using OIDC
-      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
-      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}         # CICD_PROD_SERVICE_USER
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}         # FR_CICD_PROD_SERVICE
+      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh_prod
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
+      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # prod
 
     steps:
-      # Check out repository code
-      # Gets the latest code from the pull request branch
       - name: Check out repository code
         uses: actions/checkout@v4
 
       - name: Install Snowflake CLI
         uses: snowflakedb/snowflake-cli-action@v2.0
-        with: # Ensures Snowflake CLI will search for OIDC users matching this subject
+        with:
           use-oidc: true
 
-      - name: Check Snowflake CLI Version
-        run: snow --version
-
-      # The -x is shorthand for --temporary-connection
       - run: snow connection test -x
 
-      # The --force setting creates the object or updates it if it already exists
-      # You can remove the "--source" flag if your dbt_project.yml is at root of your repo
-      # The --default-target flag ensures the dbt project object compiles and executes with your prod target
-      - name: Create a new dbt project object in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
-        run: snow dbt deploy tasty_bytes_dbt_object_gh_action --source ./tasty_bytes --default-target prod --dbt-version 1.11.11 --force -x
+      - name: Deploy dbt project object to Prod
+        run: snow dbt deploy tasty_bytes_dbt_project_object_prod --source ./tasty_bytes --dbt-version 1.11.11 --force -x
 
       - name: List all of the snowflake dbt project objects on your account
         run: snow dbt list -x
