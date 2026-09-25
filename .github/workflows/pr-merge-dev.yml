@@ -1,0 +1,43 @@
+name: Deploy to Dev
+run-name: Dev deploy triggered by ${{ github.actor }}
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-dev-dbt-job:
+    name: "Deploy dbt project to Dev"
+    runs-on: ubuntu-latest
+    environment: dev
+    env:
+      SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
+      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}
+      TARGET_ENV: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Snowflake CLI
+        uses: snowflakedb/snowflake-cli-action@v2.0
+        with:
+          use-oidc: true
+
+      - run: snow connection test -x
+
+      - name: Generate env.yml for dev
+        run: envsubst < ./tasty_bytes/env.yml.template > ./tasty_bytes/env.yml
+
+      - name: Deploy dbt project object to Dev
+        run: snow dbt deploy tasty_bytes_dbt_project_object_dev --source ./tasty_bytes --dbt-version 1.11.11 --force -x
+
+      - name: Full build in Dev
+        run: snow dbt execute -x tasty_bytes_dbt_project_object_dev build --target dev
