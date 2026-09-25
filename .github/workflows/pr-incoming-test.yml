@@ -1,0 +1,51 @@
+name: Incoming PR
+run-name: PR opened by ${{ github.actor }}
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [test]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  run-snowflake-test-dbt-job:
+    name: "Run on Incoming PR"
+    runs-on: ubuntu-latest
+    environment: dev   # matches the dev OIDC subject, not test
+    env:
+      SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}         # CICD_DEV_SERVICE_USER
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}         # FR_CICD_DEV_SERVICE
+      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
+      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # dev
+      TARGET_ENV: dev
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install Snowflake CLI
+        uses: snowflakedb/snowflake-cli-action@v2.0
+        with:
+          use-oidc: true
+
+      - name: Check Snowflake CLI Version
+        run: snow --version
+
+      - run: snow connection test -x
+
+      - name: Generate env.yml for dev
+        run: envsubst < ./tasty_bytes/env.yml.template > ./tasty_bytes/env.yml
+
+      - name: Create/update tester dbt project object in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
+        run: snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action --source ./tasty_bytes --dbt-version 1.11.11 --force -x
+
+      - name: List all dbt project objects in account
+        run: snow dbt list -x
+
+      - name: Build and test dbt project in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
+        run: snow dbt execute -x tester_tasty_bytes_dbt_project_object_gh_action build --target dev

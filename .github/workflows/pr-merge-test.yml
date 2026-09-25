@@ -1,0 +1,47 @@
+name: Deploy to Prod
+run-name: Prod deploy triggered by ${{ github.actor }}
+on:
+  push:
+    branches: [test]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-test-dbt-job:
+    name: "Deploy dbt project to test"
+    runs-on: ubuntu-latest
+    environment: test   # matches the test OIDC subject (CICD_TEST_USER)
+    env:
+      SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
+      SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}         # CICD_TEST_SERVICE_USER
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}         # FR_CICD_TEST_SERVICE
+      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh_test
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
+      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # test
+      TARGET_ENV: test
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Install Snowflake CLI
+        uses: snowflakedb/snowflake-cli-action@v2.0
+        with:
+          use-oidc: true
+
+      - run: snow connection test -x
+
+      - name: Generate env.yml for dev
+        run: envsubst < ./tasty_bytes/env.yml.template > ./tasty_bytes/env.yml
+
+      - name: Deploy dbt project object to Prod
+        run: snow dbt deploy tasty_bytes_dbt_project_object_test --source ./tasty_bytes --dbt-version 1.11.11 --force -x
+
+      - name: List all of the snowflake dbt project objects on your account
+        run: snow dbt list -x
+
+      - name: Run schedules.sql to create or alter tasks for tasty_bytes_dbt_project_object_test
+        run: snow sql -f ${{ github.workspace }}/tasty_bytes/schedules.sql -x
