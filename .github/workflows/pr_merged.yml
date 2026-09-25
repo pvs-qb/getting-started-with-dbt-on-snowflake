@@ -21,6 +21,7 @@ jobs:
       SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh_prod
       SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
       SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # prod
+      TARGET_ENV: prod
 
     steps:
       - name: Check out repository code
@@ -32,6 +33,9 @@ jobs:
           use-oidc: true
 
       - run: snow connection test -x
+
+      - name: Generate env.yml for dev
+        run: envsubst < ./tasty_bytes/env.yml.template > ./tasty_bytes/env.yml
 
       - name: Deploy dbt project object to Prod
         run: snow dbt deploy tasty_bytes_dbt_project_object_prod --source ./tasty_bytes_dbt_demo --dbt-version 1.11.11 --force -x

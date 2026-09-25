@@ -22,6 +22,7 @@ jobs:
       SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh
       SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
       SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # dev
+      TARGET_ENV: dev
 
     steps:
       - name: Check out repository code
@@ -37,8 +38,11 @@ jobs:
 
       - run: snow connection test -x
 
+      - name: Generate env.yml for dev
+        run: envsubst < ./tasty_bytes/env.yml.template > ./tasty_bytes/env.yml
+
       - name: Create/update tester dbt project object in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
-        run: snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action --source ./tasty_bytes_dbt_demo --dbt-version 1.11.11 --force -x
+        run: snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action --source ./tasty_bytes --dbt-version 1.11.11 --force -x
 
       - name: List all dbt project objects in account
         run: snow dbt list -x
