@@ -43,5 +43,5 @@ jobs:
       - name: List all of the snowflake dbt project objects on your account
         run: snow dbt list -x
 
-      - name: Run schedules.sql to create or alter tasks for tasty_bytes_dbt_project_object_test
+      - name: Run schedules.sql to create or alter tasks for tasty_bytes_test
         run: snow sql -f ${{ github.workspace }}/tasty_bytes/schedules.sql -x

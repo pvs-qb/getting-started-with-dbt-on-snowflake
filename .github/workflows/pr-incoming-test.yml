@@ -1,5 +1,5 @@
-name: Incoming PR
-run-name: PR opened by ${{ github.actor }}
+name: Incoming PR to Test
+run-name: PR to test opened by ${{ github.actor }}
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
@@ -10,19 +10,22 @@ permissions:
   id-token: write
 
 jobs:
-  run-snowflake-test-dbt-job:
-    name: "Run on Incoming PR"
+  slim-ci-test-dbt-job:
+    name: "Slim CI on Incoming PR to Test"
     runs-on: ubuntu-latest
-    environment: dev   # matches the dev OIDC subject, not test
+    environment: test
     env:
       SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}         # CICD_DEV_SERVICE_USER
-      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}         # FR_CICD_DEV_SERVICE
-      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh
-      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
-      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # dev
-      TARGET_ENV: dev
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+      SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
+      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
+      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}
+      TARGET_ENV: test
+      PROJECT_SCHEMA: PROJECT_TEST
+      PROJECT_OBJECT: tasty_bytes_dbt_project_object_test
+      TESTER_PROJECT_OBJECT: tester_tasty_bytes_gh_action_test
 
     steps:
       - name: Check out repository code
@@ -36,16 +39,49 @@ jobs:
       - name: Check Snowflake CLI Version
         run: snow --version
 
-      - run: snow connection test -x
+      - name: Test connection
+        run: snow connection test -x
 
-      - name: Generate env.yml for dev
+      - name: Generate env.yml for test
         run: envsubst < ./tasty_bytes/env.yml.template > ./tasty_bytes/env.yml
 
-      - name: Create/update tester dbt project object in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
-        run: snow dbt deploy tester_tasty_bytes_dbt_project_object_gh_action --source ./tasty_bytes --dbt-version 1.11.11 --force -x
+      - name: Deploy tester dbt project object (no auto-compile)
+        run: |
+          snow dbt deploy "${{ env.TESTER_PROJECT_OBJECT }}" \
+            --database "${{ vars.SNOWFLAKE_DATABASE }}" \
+            --schema "${{ env.PROJECT_SCHEMA }}" \
+            --source ./tasty_bytes \
+            --no-auto-compile \
+            --dbt-version 1.11.11 \
+            --force -x
 
-      - name: List all dbt project objects in account
-        run: snow dbt list -x
+      - name: Get last successful prod run artifacts
+        id: get_state
+        run: |
+          QUERY_ID=$(snow sql -x --format json -q \
+            "SELECT SYSTEM\$DBT_GET_LAST_SUCCESSFUL_RUN_TARGET('${{ vars.SNOWFLAKE_DATABASE }}.${{ env.PROJECT_SCHEMA }}.${{ env.PROJECT_OBJECT }}') AS query_id;" \
+            | jq -r '.[0].query_id')
 
-      - name: Build and test dbt project in ${{ vars.SNOWFLAKE_DATABASE }}.${{ vars.SNOWFLAKE_SCHEMA }}
-        run: snow dbt execute -x tester_tasty_bytes_dbt_project_object_gh_action build --target dev
+          if [ -z "$QUERY_ID" ] || [ "$QUERY_ID" == "null" ]; then
+            echo "No successful prod run found in the last 7 days — falling back to full build."
+            echo "has_baseline=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found prod baseline query id: $QUERY_ID"
+            echo "query_id=$QUERY_ID" >> "$GITHUB_OUTPUT"
+            echo "has_baseline=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Slim CI build — changed models only
+        if: steps.get_state.outputs.has_baseline == 'true'
+        run: |
+          snow sql -x -q "
+          EXECUTE DBT PROJECT ${{ vars.SNOWFLAKE_DATABASE }}.${{ env.PROJECT_SCHEMA }}.${{ env.TESTER_PROJECT_OBJECT }}
+            ARGS = 'build --state ./imports/state --defer --select state:modified+ --target test'
+            IMPORTS = (
+              SYSTEM\$LOCATE_DBT_ARTIFACTS('${{ steps.get_state.outputs.query_id }}') AS 'state'
+            );
+          "
+
+      - name: Fallback — full build (no prod baseline available)
+        if: steps.get_state.outputs.has_baseline == 'false'
+        run: snow dbt execute -x "${{ env.TESTER_PROJECT_OBJECT }}" build --target test

@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: orders_incremental
+    description: 'Incrementally loaded order header records, merged on order_id'
+    columns:
+      - name: order_id
+        description: 'Primary key for orders'
+        data_tests:
+          - unique
+          - not_null
+      - name: order_total
+        description: 'Total order amount'
+        data_tests:
+          - is_positive_amount
+
+  - name: order_items_incremental
+    description: 'Incrementally loaded order line items, merged on order_detail_id'
+    columns:
+      - name: order_detail_id
+        description: 'Primary key for order line items'
+        data_tests:
+          - unique
+          - not_null
+      - name: price
+        description: 'Total line price'
+        data_tests:
+          - is_positive_amount
+
+  - name: truck_sales_summary
+    description: 'Aggregated order count and sales total per truck'
+    columns:
+      - name: truck_id
+        description: 'Primary key for trucks'
+        data_tests:
+          - unique
+          - not_null
+      - name: total_sales
+        description: 'Total sales amount for the truck'
+        data_tests:
+          - is_positive_amount
+
+  - name: location_sales_summary
+    description: 'Aggregated order count and sales total per location'
+    columns:
+      - name: location_id
+        description: 'Primary key for locations'
+        data_tests:
+          - unique
+          - not_null
+      - name: total_sales
+        description: 'Total sales amount for the location'
+        data_tests:
+          - is_positive_amount
