@@ -17,11 +17,11 @@ jobs:
     env:
       SNOWFLAKE_CLI_FEATURES_ENABLE_DBT: true
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-      SNOWFLAKE_ROLE: ${{ vars.SNOWFLAKE_ROLE }}
-      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
-      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
-      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}
+      SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}         # CICD_TEST_SERVICE_USER
+      SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}         # FR_CICD_TEST_SERVICE
+      SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh_test
+      SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
+      SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # test
       TARGET_ENV: test
       PROJECT_SCHEMA: PROJECT_TEST
       PROJECT_OBJECT: tasty_bytes_dbt_project_object_test
