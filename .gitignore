@@ -1,5 +1,5 @@
 tasty_bytes/target/
 tasty_bytes/dbt_packages/
-tasty_bytes/logs/
+tasty_bytes/logs/*
 .vscode/settings.json
 **/env.yml
