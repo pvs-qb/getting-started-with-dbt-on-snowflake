@@ -1,0 +1,28 @@
+version: 2
+
+snapshots:
+  - name: snapshot_pos_truck
+    description: 'SCD Type 2 snapshot tracking changes to truck attributes over time'
+    columns:
+      - name: truck_id
+        description: 'Foreign key to truck'
+        data_tests:
+          - not_null
+      - name: dbt_scd_id
+        description: 'Unique snapshot record identifier'
+        data_tests:
+          - unique
+          - not_null
+
+  - name: snapshot_customer_loyalty
+    description: 'SCD Type 2 snapshot tracking changes to customer loyalty attributes over time'
+    columns:
+      - name: customer_id
+        description: 'Foreign key to customer'
+        data_tests:
+          - not_null
+      - name: dbt_scd_id
+        description: 'Unique snapshot record identifier'
+        data_tests:
+          - unique
+          - not_null
