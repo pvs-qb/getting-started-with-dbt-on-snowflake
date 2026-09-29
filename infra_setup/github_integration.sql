@@ -3,7 +3,7 @@ USE tasty_bytes_dbt_db.integrations;
 CREATE OR REPLACE SECRET tasty_bytes_dbt_db.integrations.dbt_github_secret_dev /*git-integration-secret*/
   TYPE = PASSWORD
   USERNAME = 'pvs-qb'
-  PASSWORD = '<token>'
+  PASSWORD = 'github_pat_<token>'
   COMMENT = 'GitHub username + PAT for dbt Git repository integration';
 
 -- Requires ACCOUNTADMIN or a role with CREATE INTEGRATION
