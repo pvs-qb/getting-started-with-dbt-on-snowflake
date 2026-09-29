@@ -22,6 +22,7 @@ jobs:
       SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}  # tasty_bytes_dbt_wh
       SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}    # tasty_bytes_dbt_db
       SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}        # dev
+      SNOWFLAKE_DATA_DB: ${{ vars.SNOWFLAKE_DATA_DB }}      # DBT_DEV
       TARGET_ENV: dev
 
     steps:

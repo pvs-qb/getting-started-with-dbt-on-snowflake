@@ -21,6 +21,7 @@ jobs:
       SNOWFLAKE_WAREHOUSE: ${{ vars.SNOWFLAKE_WAREHOUSE }}
       SNOWFLAKE_DATABASE: ${{ vars.SNOWFLAKE_DATABASE }}
       SNOWFLAKE_SCHEMA: ${{ vars.SNOWFLAKE_SCHEMA }}
+      SNOWFLAKE_DATA_DB: ${{ vars.SNOWFLAKE_DATA_DB }}      # DBT_dev
       TARGET_ENV: dev
 
     steps:
